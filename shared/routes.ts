@@ -1,53 +1,5 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
-
-export const roleEnum = pgEnum("role", ["admin", "manager", "worker"]);
-export const severityEnum = pgEnum("severity", ["low", "medium", "high", "critical"]);
-export const statusEnum = pgEnum("status", ["open", "under_review", "resolved"]);
-export const riskLevelEnum = pgEnum("risk_level", ["low", "medium", "high"]);
-
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: roleEnum("role").default("worker").notNull(),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const incidents = pgTable("incidents", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  description: text("description").notNull(),
-  location: text("location").notNull(),
-  severity: severityEnum("severity").notNull(),
-  status: statusEnum("status").default("open").notNull(),
-  imageUrl: text("image_url"),
-  reportedBy: integer("reported_by").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const risks = pgTable("risks", {
-  id: serial("id").primaryKey(),
-  hazard: text("hazard").notNull(),
-  description: text("description").notNull(),
-  riskLevel: riskLevelEnum("risk_level").notNull(),
-  mitigation: text("mitigation").notNull(),
-  status: text("status").default("active").notNull(), // active, mitigated
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
-export const insertIncidentSchema = createInsertSchema(incidents).omit({ id: true, createdAt: true, status: true });
-export const insertRiskSchema = createInsertSchema(risks).omit({ id: true, createdAt: true });
-
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type Incident = typeof incidents.$inferSelect;
-export type InsertIncident = z.infer<typeof insertIncidentSchema>;
-export type Risk = typeof risks.$inferSelect;
-export type InsertRisk = z.infer<typeof insertRiskSchema>;
+import { z } from 'zod';
+import { insertUserSchema, insertIncidentSchema, insertRiskSchema, users, incidents, risks } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -75,7 +27,7 @@ export const api = {
         password: z.string(),
       }),
       responses: {
-        200: z.custom<User>(),
+        200: z.custom<typeof users.$inferSelect>(),
         401: errorSchemas.unauthorized,
       },
     },
@@ -91,7 +43,7 @@ export const api = {
       path: '/api/register' as const,
       input: insertUserSchema,
       responses: {
-        201: z.custom<User>(),
+        201: z.custom<typeof users.$inferSelect>(),
         400: errorSchemas.validation,
       },
     },
@@ -99,7 +51,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/user' as const,
       responses: {
-        200: z.custom<User>(),
+        200: z.custom<typeof users.$inferSelect>(),
         401: errorSchemas.unauthorized,
       },
     },
@@ -109,7 +61,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/incidents' as const,
       responses: {
-        200: z.array(z.custom<Incident>()),
+        200: z.array(z.custom<typeof incidents.$inferSelect>()),
       },
     },
     create: {
@@ -117,7 +69,7 @@ export const api = {
       path: '/api/incidents' as const,
       input: insertIncidentSchema,
       responses: {
-        201: z.custom<Incident>(),
+        201: z.custom<typeof incidents.$inferSelect>(),
         400: errorSchemas.validation,
       },
     },
@@ -125,7 +77,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/incidents/:id' as const,
       responses: {
-        200: z.custom<Incident>(),
+        200: z.custom<typeof incidents.$inferSelect>(),
         404: errorSchemas.notFound,
       },
     },
@@ -134,7 +86,7 @@ export const api = {
       path: '/api/incidents/:id' as const,
       input: z.object({ status: z.enum(["open", "under_review", "resolved"]) }),
       responses: {
-        200: z.custom<Incident>(),
+        200: z.custom<typeof incidents.$inferSelect>(),
         404: errorSchemas.notFound,
       },
     },
@@ -144,7 +96,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/risks' as const,
       responses: {
-        200: z.array(z.custom<Risk>()),
+        200: z.array(z.custom<typeof risks.$inferSelect>()),
       },
     },
     create: {
@@ -152,7 +104,7 @@ export const api = {
       path: '/api/risks' as const,
       input: insertRiskSchema,
       responses: {
-        201: z.custom<Risk>(),
+        201: z.custom<typeof risks.$inferSelect>(),
         400: errorSchemas.validation,
       },
     },
