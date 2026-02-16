@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Oswald:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -32,6 +32,8 @@
   --ring: 14 100% 57%;
   
   --radius: 0.5rem;
+  --font-sans: 'Inter', 'Poppins', sans-serif;
+  --font-display: 'Montserrat', sans-serif;
 }
 
 .dark {
@@ -64,11 +66,11 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Oswald', sans-serif;
-    @apply uppercase tracking-wide;
+    font-family: var(--font-display);
+    @apply uppercase tracking-wide font-bold;
   }
 }
 

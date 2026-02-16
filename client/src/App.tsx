@@ -41,11 +41,11 @@ function ProtectedRoute({ component: Component, allowedRoles }: { component: any
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans flex flex-col">
       <Navigation />
-      <div className="lg:pl-64 pt-16 lg:pt-0 min-h-screen bg-muted/20">
+      <main className="flex-1 lg:pl-64 pt-16 lg:pt-0 bg-muted/20">
         <Component />
-      </div>
+      </main>
     </div>
   );
 }
