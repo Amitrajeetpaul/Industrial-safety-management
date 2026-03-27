@@ -14,8 +14,7 @@ app.use((req, res, next) => {
 
 const httpServer = createServer(app);
 
-// Register API routes and wait for completion
-// Top-level await is supported in modern Node.js environments like Vercel
+// Register API routes
 await registerRoutes(httpServer, app);
 
 // Error handling
