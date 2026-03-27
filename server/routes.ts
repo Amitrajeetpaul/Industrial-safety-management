@@ -276,6 +276,11 @@ export async function registerRoutes(
     });
   });
 
+  // --- Health Check (DB Independent) ---
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', message: 'InduSafe API is reachable' });
+  });
+
   // --- Seed Data ---
   await seedData();
 
