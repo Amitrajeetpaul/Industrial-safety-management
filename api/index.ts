@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Middleware for logging (simplified for serverless)
+// Middleware for logging
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
   next();
@@ -14,10 +14,9 @@ app.use((req, res, next) => {
 
 const httpServer = createServer(app);
 
-// Register API routes
-(async () => {
-  await registerRoutes(httpServer, app);
-})();
+// Register API routes and wait for completion
+// Top-level await is supported in modern Node.js environments like Vercel
+await registerRoutes(httpServer, app);
 
 // Error handling
 app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
