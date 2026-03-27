@@ -282,7 +282,11 @@ export async function registerRoutes(
   });
 
   // --- Seed Data ---
-  await seedData();
+  if (process.env.DATABASE_URL) {
+    await seedData();
+  } else {
+    console.warn("Skipping data seeding: DATABASE_URL is missing.");
+  }
 
   // --- Live Data Simulation ---
   if (process.env.NODE_ENV !== "production") {
