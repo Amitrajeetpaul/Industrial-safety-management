@@ -1,5 +1,6 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -17,6 +18,7 @@ export async function hashPassword(password: string) {
 
 async function comparePasswords(supplied: string, stored: string) {
   const [hashed, salt] = stored.split(".");
+  if (!hashed || !salt) return false;
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
@@ -27,20 +29,17 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || "r3pl1t_s3cur1ty_k3y",
     resave: false,
     saveUninitialized: false,
-    store: undefined, // MemoryStore by default, perfect for this
+    store: undefined,
     cookie: {
       secure: app.get("env") === "production",
     }
   };
-  
-  // if (app.get("env") === "production") {
-  //   app.set("trust proxy", 1); // trust first proxy
-  // }
 
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Local Strategy
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
@@ -56,6 +55,51 @@ export function setupAuth(app: Express) {
     }),
   );
 
+  // Google Strategy
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "/api/auth/google/callback",
+    },
+      async (_accessToken, _refreshToken, profile, done) => {
+        try {
+          const googleId = profile.id;
+          let user = await storage.getUserByGoogleId(googleId);
+
+          if (!user) {
+            // Check if user exists by email (if username stores email)
+            const email = profile.emails?.[0]?.value;
+            if (email) {
+              user = await storage.getUserByUsername(email);
+              if (user) {
+                // Link account
+                await storage.updateUser(user.id, { googleId });
+                return done(null, user);
+              }
+            }
+
+            // Create new user
+            const username = email || `google_${googleId}`;
+            const password = await hashPassword(randomBytes(16).toString("hex")); // Dummy password
+
+            user = await storage.createUser({
+              username,
+              password,
+              role: "worker", // Default role
+              name: profile.displayName,
+              googleId
+            });
+          }
+
+          return done(null, user);
+        } catch (err) {
+          return done(err);
+        }
+      }
+    ));
+  }
+
   passport.serializeUser((user, done) => done(null, (user as User).id));
   passport.deserializeUser(async (id, done) => {
     try {
@@ -67,7 +111,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: any, user: User, _info: any) => {
       if (err) {
         return next(err);
       }
@@ -82,6 +126,17 @@ export function setupAuth(app: Express) {
       });
     })(req, res, next);
   });
+
+  // Google Routes
+  app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+  app.get("/api/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/login" }),
+    (_req, res) => {
+      // Successful authentication, redirect dashboard.
+      res.redirect("/");
+    }
+  );
 
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {

@@ -1,13 +1,18 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { 
-  ShieldAlert, 
-  LayoutDashboard, 
-  FileText, 
-  LogOut, 
+import {
+  ShieldAlert,
+  LayoutDashboard,
+  FileText,
+  LogOut,
   Menu,
   X,
-  HardHat
+  HardHat,
+  Briefcase,
+  Wrench,
+  ShieldCheck,
+  School,
+  Leaf
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -21,11 +26,11 @@ export function Navigation() {
 
   const NavItem = ({ href, icon: Icon, children }: { href: string, icon: any, children: React.ReactNode }) => (
     <Link href={href}>
-      <div 
+      <div
         className={cn(
           "flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-200 cursor-pointer group",
-          location === href 
-            ? "bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/30" 
+          location === href
+            ? "bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/30"
             : "text-muted-foreground hover:bg-secondary/10 hover:text-foreground"
         )}
         onClick={() => setIsOpen(false)}
@@ -56,7 +61,7 @@ export function Navigation() {
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <NavItem href="/" icon={LayoutDashboard}>Dashboard</NavItem>
-          
+
           {(user.role === 'admin' || user.role === 'manager') && (
             <NavItem href="/incidents" icon={FileText}>Incidents Log</NavItem>
           )}
@@ -67,6 +72,16 @@ export function Navigation() {
 
           {user.role === 'worker' && (
             <NavItem href="/report" icon={HardHat}>Report Hazard</NavItem>
+          )}
+
+          {(user.role === 'admin' || user.role === 'manager') && (
+            <div className="pt-4 pb-2 border-t border-border/20 mx-2">
+              <p className="text-[10px] font-black uppercase text-muted-foreground px-2 tracking-widest mb-2">Operations</p>
+              <NavItem href="/ppe" icon={Briefcase}>PPE Inventory</NavItem>
+              <NavItem href="/safety-improvements" icon={ShieldCheck}>Improvements</NavItem>
+              <NavItem href="/training" icon={School}>Training</NavItem>
+              <NavItem href="/sustainability" icon={Leaf}>Sustainability</NavItem>
+            </div>
           )}
         </nav>
 
@@ -80,8 +95,8 @@ export function Navigation() {
               <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full justify-start gap-2 border-primary/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
             onClick={() => logout()}
           >
@@ -97,7 +112,7 @@ export function Navigation() {
           <ShieldAlert className="w-6 h-6 text-primary" />
           <span className="font-black text-xl tracking-tighter">INDU<span className="text-primary">SAFE</span></span>
         </div>
-        
+
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -123,10 +138,18 @@ export function Navigation() {
                 {user.role === 'worker' && (
                   <NavItem href="/report" icon={HardHat}>Report Hazard</NavItem>
                 )}
+                {(user.role === 'admin' || user.role === 'manager') && (
+                  <>
+                    <NavItem href="/ppe" icon={Briefcase}>PPE Inventory</NavItem>
+                    <NavItem href="/safety-improvements" icon={ShieldCheck}>Improvements</NavItem>
+                    <NavItem href="/training" icon={School}>Training</NavItem>
+                    <NavItem href="/sustainability" icon={Leaf}>Sustainability</NavItem>
+                  </>
+                )}
               </nav>
               <div className="p-4 border-t">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full gap-2"
                   onClick={() => logout()}
                 >
@@ -139,10 +162,7 @@ export function Navigation() {
         </Sheet>
       </header>
 
-      {/* Main Content Padding for Desktop */}
-      <div className="lg:pl-64 pt-16 lg:pt-0 min-h-screen bg-muted/30">
-        {/* Content is rendered by Router */}
-      </div>
+
     </>
   );
 }

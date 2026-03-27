@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   role: roleEnum("role").default("worker").notNull(),
   name: text("name").notNull(),
+  googleId: text("google_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -38,9 +39,73 @@ export const risks = pgTable("risks", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  content: text("content").notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const ppeInventory = pgTable("ppe_inventory", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // e.g., "Hard Hat", "Harness"
+  serialNumber: text("serial_number").notNull().unique(),
+  manufactureDate: timestamp("manufacture_date").notNull(),
+  lastInspectionDate: timestamp("last_inspection_date").notNull(),
+  nextInspectionDate: timestamp("next_inspection_date").notNull(),
+  status: text("status").default("ok").notNull(), // ok, expired, maintenance_due
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const environmentalMetrics = pgTable("environmental_metrics", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull(), // air, water, machine
+  label: text("label").notNull(), // e.g., "PM2.5", "pH Level", "Vibration"
+  value: text("value").notNull(),
+  unit: text("unit").notNull(),
+  status: text("status").default("optimal").notNull(), // optimal, warning, critical
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const safetyMeasures = pgTable("safety_measures", {
+  id: serial("id").primaryKey(),
+  incidentId: integer("incident_id").references(() => incidents.id),
+  description: text("description").notNull(),
+  actionTaken: text("action_taken").notNull(),
+  status: text("status").default("planned").notNull(), // planned, in_progress, completed
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const trainingCertifications = pgTable("training_certifications", {
+  id: serial("id").primaryKey(),
+  workerName: text("worker_name").notNull(),
+  courseName: text("course_name").notNull(),
+  issueDate: timestamp("issue_date").notNull(),
+  expiryDate: timestamp("expiry_date").notNull(),
+  status: text("status").default("valid").notNull(), // valid, expiring_soon, expired
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const sustainabilityMetrics = pgTable("sustainability_metrics", {
+  id: serial("id").primaryKey(),
+  area: text("area").notNull(), // e.g., "Production Line A", "Main Office"
+  consumption: text("consumption").notNull(), // value in kWh
+  carbonFootprint: text("carbon_footprint").notNull(), // value in kg CO2
+  unit: text("unit").default("kWh").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
-export const insertIncidentSchema = createInsertSchema(incidents).omit({ id: true, createdAt: true, status: true });
+export const insertIncidentSchema = createInsertSchema(incidents).omit({ id: true, createdAt: true, status: true, reportedBy: true });
 export const insertRiskSchema = createInsertSchema(risks).omit({ id: true, createdAt: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
+export const insertPPESchema = createInsertSchema(ppeInventory).omit({ id: true, createdAt: true });
+export const insertMetricSchema = createInsertSchema(environmentalMetrics).omit({ id: true, createdAt: true });
+export const insertSafetyMeasureSchema = createInsertSchema(safetyMeasures).omit({ id: true, createdAt: true });
+export const insertTrainingSchema = createInsertSchema(trainingCertifications).omit({ id: true, createdAt: true });
+export const insertSustainabilitySchema = createInsertSchema(sustainabilityMetrics).omit({ id: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -48,6 +113,18 @@ export type Incident = typeof incidents.$inferSelect;
 export type InsertIncident = z.infer<typeof insertIncidentSchema>;
 export type Risk = typeof risks.$inferSelect;
 export type InsertRisk = z.infer<typeof insertRiskSchema>;
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type PPEItem = typeof ppeInventory.$inferSelect;
+export type InsertPPE = z.infer<typeof insertPPESchema>;
+export type Metric = typeof environmentalMetrics.$inferSelect;
+export type InsertMetric = z.infer<typeof insertMetricSchema>;
+export type SafetyMeasure = typeof safetyMeasures.$inferSelect;
+export type InsertSafetyMeasure = z.infer<typeof insertSafetyMeasureSchema>;
+export type TrainingCertification = typeof trainingCertifications.$inferSelect;
+export type InsertTraining = z.infer<typeof insertTrainingSchema>;
+export type SustainabilityMetric = typeof sustainabilityMetrics.$inferSelect;
+export type InsertSustainability = z.infer<typeof insertSustainabilitySchema>;
 
 export const errorSchemas = {
   validation: z.object({
@@ -157,6 +234,24 @@ export const api = {
       },
     },
   },
+  messages: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/messages' as const,
+      responses: {
+        200: z.array(z.custom<Message>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/messages' as const,
+      input: insertMessageSchema,
+      responses: {
+        201: z.custom<Message>(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
   stats: {
     get: {
       method: 'GET' as const,
@@ -168,6 +263,69 @@ export const api = {
           riskScore: z.number(),
           resolvedCount: z.number(),
         }),
+      },
+    },
+  },
+  ppe: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/ppe' as const,
+      responses: {
+        200: z.array(z.custom<PPEItem>()),
+      },
+    },
+    updateStatus: {
+      method: 'PATCH' as const,
+      path: '/api/ppe/:id' as const,
+      input: z.object({ status: z.string() }),
+      responses: {
+        200: z.custom<PPEItem>(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  metrics: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/metrics' as const,
+      responses: {
+        200: z.array(z.custom<Metric>()),
+      },
+    },
+  },
+  safetyMeasures: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/safety-measures' as const,
+      responses: {
+        200: z.array(z.custom<SafetyMeasure>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/safety-measures' as const,
+      input: insertSafetyMeasureSchema,
+      responses: {
+        201: z.custom<SafetyMeasure>(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
+  training: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/training' as const,
+      responses: {
+        200: z.array(z.custom<TrainingCertification>()),
+      },
+    },
+  },
+  sustainability: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/sustainability' as const,
+      responses: {
+        200: z.array(z.custom<SustainabilityMetric>()),
       },
     },
   },

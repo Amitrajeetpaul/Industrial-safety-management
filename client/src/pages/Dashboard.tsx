@@ -17,10 +17,12 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EnvironmentalMetrics } from "@/components/EnvironmentalMetrics";
+import { FloorplanMap } from "@/components/FloorplanMap";
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useStats();
-  const { data: incidents, isLoading: incidentsLoading } = useIncidents();
+  const { incidents, isLoading: incidentsLoading } = useIncidents();
 
   // Get recent 3 incidents
   const recentIncidents = incidents?.slice(0, 3) || [];
@@ -88,6 +90,26 @@ export default function Dashboard() {
           color="primary"
         />
       </div>
+
+      <EnvironmentalMetrics />
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="uppercase flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              Interactive Floorplan & Emergency Drill
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FloorplanMap incidents={incidents || []} />
+          </CardContent>
+        </Card>
+      </motion.div>
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Recent Activity */}
