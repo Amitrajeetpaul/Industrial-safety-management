@@ -12,6 +12,49 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // --- Simulation Helpers ---
+  async function runEnvironmentalSimulation() {
+    try {
+      const metricsList = await storage.getEnvironmentalMetrics();
+      for (const m of metricsList) {
+        let newValue = parseFloat(m.value);
+        const fluctuation = (Math.random() - 0.5) * 2;
+        newValue += fluctuation;
+
+        if (m.type === 'air' && m.label === 'PM2.5') newValue = Math.max(5, Math.min(35, newValue));
+        if (m.type === 'air' && m.label === 'CO2') newValue = Math.max(380, Math.min(500, newValue));
+        if (m.type === 'water' && m.label === 'pH Level') newValue = Math.max(6.5, Math.min(8.5, newValue));
+        if (m.type === 'machine' && m.label === 'Temp') newValue = Math.max(70, Math.min(95, newValue));
+
+        await storage.updateEnvironmentalMetric(
+          m.id,
+          newValue.toFixed(m.type === 'air' ? 0 : 1),
+          newValue > 90 || (m.type === 'water' && (newValue < 6.8 || newValue > 8.2)) ? 'warning' : 'optimal'
+        );
+      }
+    } catch (e) {
+      console.error("Simulation error:", e);
+    }
+  }
+
+  async function runEnergySimulation() {
+    try {
+      const areas = ["Main Plant", "Assembly Line 1", "Assembly Line 2", "Warehouse"];
+      for (const area of areas) {
+        const consumption = (150 + Math.random() * 50).toFixed(1);
+        const carbon = (parseFloat(consumption) * 0.4).toFixed(1);
+        await storage.createSustainabilityMetric({
+          area,
+          consumption,
+          carbonFootprint: carbon,
+          unit: "kWh"
+        });
+      }
+    } catch (e) {
+      console.error("Energy simulation error:", e);
+    }
+  }
+
   // Initialize Auth
   setupAuth(app);
 
@@ -125,6 +168,8 @@ export async function registerRoutes(
   // --- Stats ---
   app.get(api.stats.get.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    // Trigger simulation tick on dashboard view
+    await runEnvironmentalSimulation();
     const stats = await storage.getStats();
     res.json(stats);
   });
@@ -175,6 +220,7 @@ export async function registerRoutes(
   // --- Metrics ---
   app.get(api.metrics.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    await runEnvironmentalSimulation();
     const metrics = await storage.getEnvironmentalMetrics();
     res.json(metrics);
   });
@@ -210,6 +256,7 @@ export async function registerRoutes(
   // --- Sustainability ---
   app.get(api.sustainability.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    await runEnergySimulation();
     const metrics = await storage.getSustainabilityMetrics();
     res.json(metrics);
   });
@@ -233,49 +280,10 @@ export async function registerRoutes(
   await seedData();
 
   // --- Live Data Simulation ---
-  setInterval(async () => {
-    try {
-      const metricsList = await storage.getEnvironmentalMetrics();
-      for (const m of metricsList) {
-        let newValue = parseFloat(m.value);
-        const fluctuation = (Math.random() - 0.5) * 2; // +/- 1.0
-        newValue += fluctuation;
-        
-        // Clamp and format based on type
-        if (m.type === 'air' && m.label === 'PM2.5') newValue = Math.max(5, Math.min(35, newValue));
-        if (m.type === 'air' && m.label === 'CO2') newValue = Math.max(380, Math.min(500, newValue));
-        if (m.type === 'water' && m.label === 'pH Level') newValue = Math.max(6.5, Math.min(8.5, newValue));
-        if (m.type === 'machine' && m.label === 'Temp') newValue = Math.max(70, Math.min(95, newValue));
-        
-        await storage.updateEnvironmentalMetric(
-          m.id, 
-          newValue.toFixed(m.type === 'air' ? 0 : 1),
-          newValue > 90 || (m.type === 'water' && (newValue < 6.8 || newValue > 8.2)) ? 'warning' : 'optimal'
-        );
-      }
-    } catch (e) {
-      console.error("Simulation error:", e);
-    }
-  }, 5000);
-
-  // --- Energy Simulation ---
-  setInterval(async () => {
-    try {
-      const areas = ["Main Plant", "Assembly Line 1", "Assembly Line 2", "Warehouse"];
-      for (const area of areas) {
-        const consumption = (150 + Math.random() * 50).toFixed(1); // 150-200 kWh
-        const carbon = (parseFloat(consumption) * 0.4).toFixed(1); // avg kg CO2 per kWh
-        await storage.createSustainabilityMetric({
-          area,
-          consumption,
-          carbonFootprint: carbon,
-          unit: "kWh"
-        });
-      }
-    } catch (e) {
-      console.error("Energy simulation error:", e);
-    }
-  }, 10000); // Pulse every 10s
+  if (process.env.NODE_ENV !== "production") {
+    setInterval(runEnvironmentalSimulation, 5000);
+    setInterval(runEnergySimulation, 10000);
+  }
 
   return httpServer;
 }
